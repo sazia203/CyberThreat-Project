@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Threat & Vulnerability Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #38bdf8;
+            margin-bottom: 25px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .controls input, .controls select {
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background-color: #1e293b;
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .controls input {
+            flex: 2;
+            min-width: 200px;
+        }
+
+        .controls select {
+            flex: 1;
+            min-width: 150px;
+            cursor: pointer;
+        }
+
+        .controls input:focus, .controls select:focus {
+            border-color: #38bdf8;
+        }
+
+        .vuln-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .card {
+            background-color: #1e293b;
+            border-left: 5px solid #38bdf8;
+            padding: 18px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .cve-id {
+            font-weight: bold;
+            color: #f43f5e;
+            background: #881337;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .vendor {
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
+        .card-body {
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🛡️ Cyber Threat & Vulnerability Dashboard</h1>
+
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="Search CVE ID or Description..." onkeyup="filterData()">
+            
+            <select id="vendorSelect" onchange="filterData()">
+                <option value="ALL">All Vendors / Products</option>
+            </select>
+        </div>
+
+        <div id="vulnContainer" class="vuln-list">
+            <div class="no-results">Loading vulnerabilities data...</div>
+        </div>
+    </div>
+
+    <script>
+        let allVulnerabilities = [];
+
+        async function fetchVulnerabilities() {
+            try {
+                const response = await fetch('http://localhost:5000/api/vulnerabilities');
+                allVulnerabilities = await response.json();
+                
+                populateVendorDropdown();
+                renderCards(allVulnerabilities);
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                document.getElementById('vulnContainer').innerHTML = `<div class="no-results">❌ Failed to load server data. Is Node server running?</div>`;
+            }
+        }
+
+        function populateVendorDropdown() {
+            const vendorSelect = document.getElementById('vendorSelect');
+            const vendors = new Set();
+
+            allVulnerabilities.forEach(item => {
+                if (item.vendorProduct) {
+                    vendors.add(item.vendorProduct);
+                }
+            });
+
+            Array.from(vendors).sort().forEach(vendor => {
+                const option = document.createElement('option');
+                option.value = vendor;
+                option.textContent = vendor;
+                vendorSelect.appendChild(option);
+            });
+        }
+
+        function filterData() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            const selectedVendor = document.getElementById('vendorSelect').value;
+
+            const filtered = allVulnerabilities.filter(item => {
+                const cve = (item.cveId || '').toLowerCase();
+                const desc = (item.desc || '').toLowerCase();
+                const vulnName = (item.vulnerabilityName || '').toLowerCase();
+                const vendorProd = item.vendorProduct || '';
+
+                const matchesSearch = cve.includes(searchText) || desc.includes(searchText) || vulnName.includes(searchText);
+                const matchesVendor = (selectedVendor === 'ALL') || (vendorProd === selectedVendor);
+
+                return matchesSearch && matchesVendor;
+            });
+
+            renderCards(filtered);
+        }
+
+        function renderCards(data) {
+            const container = document.getElementById('vulnContainer');
+            
+            if (data.length === 0) {
+                container.innerHTML = `<div class="no-results">🔍 No matching vulnerabilities found.</div>`;
+                return;
+            }
+
+            container.innerHTML = data.map(item => `
+                <div class="card">
+                    <div class="card-header">
+                        <span class="cve-id">${item.cveId || 'N/A'}</span>
+                        <span class="vendor">${item.vendorProduct || 'Unknown'}</span>
+                    </div>
+                    <div class="card-body">
+                        <strong>${item.vulnerabilityName || ''}</strong><br>
+                        ${item.desc || 'No description available.'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        fetchVulnerabilities();
+    </script>
+</body>
+</html>

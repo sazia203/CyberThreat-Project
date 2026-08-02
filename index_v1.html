@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Threat & Vulnerability Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #cbd5e1;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #38bdf8;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .stats {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 18px;
+            border-left: 5px solid #38bdf8;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+        th {
+            background-color: #0f172a;
+            color: #38bdf8;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #1e293b7a;
+        }
+        .badge {
+            background: #ef4444;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🛡️ Cyber Threat & Vulnerability Dashboard</h1>
+        
+        <div class="stats" id="total-count">Loading vulnerabilities data...</div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>CVE ID</th>
+                    <th>Vendor / Product</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody id="vulnerability-table">
+                <!-- Data will be loaded via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function fetchVulnerabilities() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/vulnerabilities');
+                const data = await response.json();
+                
+                const tableBody = document.getElementById('vulnerability-table');
+                const statsDiv = document.getElementById('total-count');
+                
+                tableBody.innerHTML = ''; 
+                
+                if(!data || data.length === 0) {
+                    tableBody.innerHTML = `<tr><td colspan="3" style="text-align:center;">No vulnerabilities found. Please check data file.</td></tr>`;
+                    statsDiv.innerText = `📊 Total Active Vulnerabilities Tracked: 0`;
+                    return;
+                }
+
+                statsDiv.innerText = `📊 Total Active Vulnerabilities Tracked: ${data.length}`;
+
+                data.forEach(vuln => {
+                    if(vuln.cveId) {
+                        const row = `
+                            <tr>
+                                <td><span class="badge">${vuln.cveId}</span></td>
+                                <td style="color: #e2e8f0; font-weight: bold;">${vuln.vendorProduct || 'N/A'}</td>
+                                <td>${vuln.desc || 'No description available'}</td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                document.getElementById('total-count').innerText = "❌ Error connecting to backend server! Make sure 'node server.js' is running.";
+            }
+        }
+
+        fetchVulnerabilities();
+    </script>
+</body>
+</html>
