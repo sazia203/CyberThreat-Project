@@ -230,9 +230,9 @@
 
         <!-- Controls -->
         <div class="controls">
-            <input type="text" id="searchInput" placeholder="Search CVE ID or Description..." onkeyup="filterData()">
+            <input type="text" id="searchInput" placeholder="Search CVE ID or Description...">
             
-            <select id="vendorSelect" onchange="filterData()">
+            <select id="vendorSelect">
                 <option value="ALL">All Vendors / Products</option>
             </select>
         </div>
@@ -243,92 +243,63 @@
     </div>
 
     <script>
-        let allVulnerabilities = [];
-
-        async function fetchVulnerabilities() {
+        // ব্যাকএন্ড API থেকে ডাটা ফেচ করার ফাংশন
+        async function fetchThreatData() {
             try {
                 const response = await fetch('http://localhost:5000/api/vulnerabilities');
-                allVulnerabilities = await response.json();
+                const data = await response.json();
                 
-                updateStats();
-                populateVendorDropdown();
-                renderCards(allVulnerabilities);
+                console.log("Fetched Data:", data);
+                displayDataInCards(data);
             } catch (error) {
                 console.error("Error fetching data:", error);
-                document.getElementById('vulnContainer').innerHTML = `<div class="no-results">❌ Failed to load server data. Is Node server running?</div>`;
+                document.getElementById('vulnContainer').innerHTML = 
+                    '<div class="no-results">Error loading data. Make sure backend server is running.</div>';
             }
         }
 
-        function updateStats() {
-            document.getElementById('totalCount').innerText = allVulnerabilities.length;
-
-            const vendors = new Set();
-            allVulnerabilities.forEach(item => {
-                if (item.vendorProduct) vendors.add(item.vendorProduct);
-            });
-            document.getElementById('vendorCount').innerText = vendors.size;
-        }
-
-        function populateVendorDropdown() {
-            const vendorSelect = document.getElementById('vendorSelect');
-            const vendors = new Set();
-
-            allVulnerabilities.forEach(item => {
-                if (item.vendorProduct) {
-                    vendors.add(item.vendorProduct);
-                }
-            });
-
-            Array.from(vendors).sort().forEach(vendor => {
-                const option = document.createElement('option');
-                option.value = vendor;
-                option.textContent = vendor;
-                vendorSelect.appendChild(option);
-            });
-        }
-
-        function filterData() {
-            const searchText = document.getElementById('searchInput').value.toLowerCase();
-            const selectedVendor = document.getElementById('vendorSelect').value;
-
-            const filtered = allVulnerabilities.filter(item => {
-                const cve = (item.cveId || '').toLowerCase();
-                const desc = (item.desc || '').toLowerCase();
-                const vulnName = (item.vulnerabilityName || '').toLowerCase();
-                const vendorProd = item.vendorProduct || '';
-
-                const matchesSearch = cve.includes(searchText) || desc.includes(searchText) || vulnName.includes(searchText);
-                const matchesVendor = (selectedVendor === 'ALL') || (vendorProd === selectedVendor);
-
-                return matchesSearch && matchesVendor;
-            });
-
-            renderCards(filtered);
-        }
-
-        function renderCards(data) {
+        // ডাটাগুলোকে কার্ড আকারে ডিসপ্লে করার ফাংশন
+        function displayDataInCards(items) {
             const container = document.getElementById('vulnContainer');
-            
-            if (data.length === 0) {
-                container.innerHTML = `<div class="no-results">🔍 No matching vulnerabilities found.</div>`;
+            const totalCountEl = document.getElementById('totalCount');
+            const vendorCountEl = document.getElementById('vendorCount');
+
+            if (!container) return;
+
+            // স্ট্যাটস আপডেট
+            if (totalCountEl) totalCountEl.textContent = items.length;
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="no-results">No vulnerabilities found.</div>';
                 return;
             }
 
-            container.innerHTML = data.map(item => `
-                <div class="card">
-                    <div class="card-header">
-                        <span class="cve-id">${item.cveId || 'N/A'}</span>
-                        <span class="vendor">${item.vendorProduct || 'Unknown'}</span>
+            container.innerHTML = ''; // কন্টেন্ট খালি করা
+
+            // ইউনিক ভেন্ডর সংখ্যা বের করা
+            const vendors = new Set(items.map(item => item.vendorProject).filter(Boolean));
+            if (vendorCountEl) vendorCountEl.textContent = vendors.size;
+
+            // প্রথম ২০টি কার্ড রেন্ডার করা
+            items.slice(0, 20).forEach(item => {
+                const card = `
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="cve-id">${item.cveID || 'N/A'}</span>
+                            <span class="vendor">${item.vendorProject || 'Unknown Vendor'} - ${item.product || ''}</span>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Description:</strong> ${item.shortDescription || 'No description provided.'}</p>
+                            <p><small style="color: var(--text-muted);">Added Date: ${item.dateAdded || 'N/A'}</small></p>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <strong>${item.vulnerabilityName || ''}</strong><br>
-                        ${item.desc || 'No description available.'}
-                    </div>
-                </div>
-            `).join('');
+                `;
+                container.innerHTML += card;
+            });
         }
 
-        fetchVulnerabilities();
+        // পেজ লোড হলেই ডাটা ফেচ হবে
+        window.onload = fetchThreatData;
     </script>
 </body>
 </html>
